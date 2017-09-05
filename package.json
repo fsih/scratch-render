@@ -38,7 +38,7 @@
     "jsdoc": "^3.5.3",
     "json": "^9.0.4",
     "raw-loader": "^0.5.1",
-    "scratch-render-fonts": "git+https://github.com/LLK/scratch-render-fonts.git",
+    "scratch-svg-renderer": "latest",
     "tap": "^10.3.0",
     "travis-after-all": "^1.4.4",
     "twgl.js": "3.3.0",

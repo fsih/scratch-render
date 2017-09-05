@@ -69,6 +69,9 @@ module.exports = [
         entry: {
             'scratch-render': './src/index.js'
         },
+        externals: {
+            'scratch-svg-renderer': 'scratch-svg-renderer'
+        },
         output: {
             library: 'ScratchRender',
             libraryTarget: 'commonjs2',

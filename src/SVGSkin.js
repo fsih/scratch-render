@@ -1,7 +1,7 @@
 const twgl = require('twgl.js');
 
 const Skin = require('./Skin');
-const SvgRenderer = require('./svg-quirks-mode/svg-renderer');
+import SvgRenderer from 'scratch-svg-renderer';
 
 class SVGSkin extends Skin {
     /**
