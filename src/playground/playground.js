@@ -2,9 +2,9 @@ const ScratchRender = require('../RenderWebGL');
 
 const canvas = document.getElementById('scratch-stage');
 const renderer = new ScratchRender(canvas);
-renderer.setLayerGroupOrdering(['group1']);
+renderer.setLayerGroupOrdering(['cat']);
 
-const drawableID2 = renderer.createDrawable('group1');
+const drawableID2 = renderer.createDrawable('cat');
 
 // SVG (cat 1-a)
 const xhr = new XMLHttpRequest();

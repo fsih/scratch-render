@@ -310,10 +310,6 @@ class RenderWebGL extends EventEmitter {
         if ('skinId' in properties) {
             drawable.skin = this._allSkins[properties.skinId];
         }
-        if ('rotationCenter' in properties) {
-            const newRotationCenter = properties.rotationCenter;
-            drawable.skin.setRotationCenter(newRotationCenter[0], newRotationCenter[1]);
-        }
         drawable.updateProperties(properties);
     }
 

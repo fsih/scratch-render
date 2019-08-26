@@ -1,11 +1,8 @@
 const twgl = require('twgl.js');
-
-const Skin = require('./Skin');
+const EventEmitter = require('events');
 const SvgRenderer = require('scratch-svg-renderer').SVGRenderer;
 
-const MAX_TEXTURE_DIMENSION = 2048;
-
-class SVGSkin extends Skin {
+class SVGSkin extends EventEmitter {
     /**
      * Create a new SVG skin.
      * @param {!int} id - The ID for this Skin.
@@ -14,7 +11,33 @@ class SVGSkin extends Skin {
      * @extends Skin
      */
     constructor (id, renderer) {
-        super(id);
+        super();
+
+        /** @type {int} */
+        this._id = id;
+
+        /** @type {Vec3} */
+        this._rotationCenter = twgl.v3.create(0, 0);
+
+        /**
+         * The uniforms to be used by the vertex and pixel shaders.
+         * Some of these are used by other parts of the renderer as well.
+         * @type {Object.<string,*>}
+         * @private
+         */
+        this._uniforms = {
+            /**
+             * The nominal (not necessarily current) size of the current skin.
+             * @type {Array<number>}
+             */
+            u_skinSize: [0, 0],
+
+            /**
+             * The actual WebGL texture object for the skin.
+             * @type {WebGLTexture}
+             */
+            u_skin: null
+        };
 
         /** @type {RenderWebGL} */
         this._renderer = renderer;
@@ -24,23 +47,6 @@ class SVGSkin extends Skin {
 
         /** @type {WebGLTexture} */
         this._texture = null;
-
-        /** @type {number} */
-        this._textureScale = 1;
-
-        /** @type {Number} */
-        this._maxTextureScale = 0;
-    }
-
-    /**
-     * Dispose of this object. Do not use it after calling this method.
-     */
-    dispose () {
-        if (this._texture) {
-            this._renderer.gl.deleteTexture(this._texture);
-            this._texture = null;
-        }
-        super.dispose();
     }
 
     /**
@@ -51,58 +57,48 @@ class SVGSkin extends Skin {
     }
 
     /**
-     * Set the origin, in object space, about which this Skin should rotate.
-     * @param {number} x - The x coordinate of the new rotation center.
-     * @param {number} y - The y coordinate of the new rotation center.
-     */
-    setRotationCenter (x, y) {
-        const viewOffset = this._svgRenderer.viewOffset;
-        super.setRotationCenter(x - viewOffset[0], y - viewOffset[1]);
-    }
-
-    /**
      * @param {Array<number>} scale - The scaling factors to be used, each in the [0,100] range.
      * @return {WebGLTexture} The GL texture representation of this skin when drawing at the given scale.
      */
     // eslint-disable-next-line no-unused-vars
-    getTexture (scale) {
-        // The texture only ever gets uniform scale. Take the larger of the two axes.
-        const scaleMax = scale ? Math.max(Math.abs(scale[0]), Math.abs(scale[1])) : 100;
-        const requestedScale = Math.min(scaleMax / 100, this._maxTextureScale);
-        let newScale = this._textureScale;
-        while ((newScale < this._maxTextureScale) && (requestedScale >= 1.5 * newScale)) {
-            newScale *= 2;
-        }
-        if (this._textureScale !== newScale) {
-            this._textureScale = newScale;
-            this._svgRenderer._draw(this._textureScale, () => {
-                if (this._textureScale === newScale) {
-                    const canvas = this._svgRenderer.canvas;
-                    const context = canvas.getContext('2d');
-                    const textureData = context.getImageData(0, 0, canvas.width, canvas.height);
-
-                    const gl = this._renderer.gl;
-                    gl.bindTexture(gl.TEXTURE_2D, this._texture);
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textureData);
-                    this._silhouette.update(textureData);
-                }
-            });
-        }
-
+    getTexture () {
         return this._texture;
+    }
+
+    /**
+     * @returns {Vec3} the origin, in object space, about which this Skin should rotate.
+     */
+    get rotationCenter () {
+        return this._rotationCenter;
+    }
+
+    /**
+     * Update and returns the uniforms for this skin.
+     * @param {Array<number>} scale - The scaling factors to be used.
+     * @returns {object.<string, *>} the shader uniforms to be used when rendering with this Skin.
+     */
+    getUniforms (scale) {
+        this._uniforms.u_skin = this.getTexture(scale);
+        this._uniforms.u_skinSize = this.size;
+        return this._uniforms;
+    }
+
+    /**
+     * Set the origin, in object space, about which this Skin should rotate.
+     */
+    setRotationCenter () {
+        this._rotationCenter[0] = this.size[0] / 2;
+        this._rotationCenter[1] = this.size[1] / 2;
     }
 
     /**
      * Set the contents of this skin to a snapshot of the provided SVG data.
      * @param {string} svgData - new SVG to use.
-     * @param {Array<number>} [rotationCenter] - Optional rotation center for the SVG. If not supplied, it will be
      * calculated from the bounding box
-     * @fires Skin.event:WasAltered
-     */
-    setSVG (svgData, rotationCenter) {
+\     */
+    setSVG (svgData) {
         this._svgRenderer.fromString(svgData, 1, () => {
             const gl = this._renderer.gl;
-            this._textureScale = this._maxTextureScale = 1;
 
             // Pull out the ImageData from the canvas. ImageData speeds up
             // updating Silhouette and is better handled by more browsers in
@@ -110,32 +106,14 @@ class SVGSkin extends Skin {
             const canvas = this._svgRenderer.canvas;
             const context = canvas.getContext('2d');
             const textureData = context.getImageData(0, 0, canvas.width, canvas.height);
+            const textureOptions = {
+                auto: true,
+                wrap: gl.CLAMP_TO_EDGE,
+                src: textureData
+            };
 
-            if (this._texture) {
-                gl.bindTexture(gl.TEXTURE_2D, this._texture);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textureData);
-                this._silhouette.update(textureData);
-            } else {
-                // TODO: mipmaps?
-                const textureOptions = {
-                    auto: true,
-                    wrap: gl.CLAMP_TO_EDGE,
-                    src: textureData
-                };
-
-                this._texture = twgl.createTexture(gl, textureOptions);
-                this._silhouette.update(textureData);
-            }
-
-            const maxDimension = Math.max(this._svgRenderer.canvas.width, this._svgRenderer.canvas.height);
-            let testScale = 2;
-            for (testScale; maxDimension * testScale <= MAX_TEXTURE_DIMENSION; testScale *= 2) {
-                this._maxTextureScale = testScale;
-            }
-
-            if (typeof rotationCenter === 'undefined') rotationCenter = this.calculateRotationCenter();
-            this.setRotationCenter.apply(this, rotationCenter);
-            this.emit(Skin.Events.WasAltered);
+            this._texture = twgl.createTexture(gl, textureOptions);
+            this.setRotationCenter();
         });
     }
 

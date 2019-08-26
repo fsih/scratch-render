@@ -2,7 +2,7 @@ const twgl = require('twgl.js');
 
 const Rectangle = require('./Rectangle');
 const RenderConstants = require('./RenderConstants');
-const Skin = require('./Skin');
+const SVGSkin = require('./SVGSkin');
 
 class Drawable {
     /**
@@ -61,14 +61,14 @@ class Drawable {
     }
 
     /**
-     * @returns {Skin} the current skin for this Drawable.
+     * @returns {SVGSkin} the current skin for this Drawable.
      */
     get skin () {
         return this._skin;
     }
 
     /**
-     * @param {Skin} newSkin - A new Skin for this Drawable.
+     * @param {SVGSkin} newSkin - A new Skin for this Drawable.
      */
     set skin (newSkin) {
         this._skin = newSkin;
