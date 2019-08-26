@@ -13449,9 +13449,6 @@ var _createClass = function () { function defineProperties(target, props) { for 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 var twgl = __webpack_require__(/*! twgl.js */ "./node_modules/twgl.js/dist/4.x/twgl-full.js");
-
-var Rectangle = __webpack_require__(/*! ./Rectangle */ "./src/Rectangle.js");
-var RenderConstants = __webpack_require__(/*! ./RenderConstants */ "./src/RenderConstants.js");
 var SVGSkin = __webpack_require__(/*! ./SVGSkin */ "./src/SVGSkin.js");
 
 var Drawable = function () {
@@ -13514,16 +13511,6 @@ var Drawable = function () {
         value: function getUniforms() {
             this._calculateTransform();
             return this._uniforms;
-        }
-
-        /**
-         * @returns {boolean} whether this Drawable is visible.
-         */
-
-    }, {
-        key: 'getVisible',
-        value: function getVisible() {
-            return this._visible;
         }
 
         /**
@@ -13623,223 +13610,6 @@ module.exports = Drawable;
 
 /***/ }),
 
-/***/ "./src/Rectangle.js":
-/*!**************************!*\
-  !*** ./src/Rectangle.js ***!
-  \**************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var Rectangle = function () {
-    /**
-     * A utility for creating and comparing axis-aligned rectangles.
-     * Rectangles are always initialized to the "largest possible rectangle";
-     * use one of the init* methods below to set up a particular rectangle.
-     * @constructor
-     */
-    function Rectangle() {
-        _classCallCheck(this, Rectangle);
-
-        this.left = -Infinity;
-        this.right = Infinity;
-        this.bottom = -Infinity;
-        this.top = Infinity;
-    }
-
-    /**
-     * Initialize a Rectangle from given Scratch-coordinate bounds.
-     * @param {number} left Left bound of the rectangle.
-     * @param {number} right Right bound of the rectangle.
-     * @param {number} bottom Bottom bound of the rectangle.
-     * @param {number} top Top bound of the rectangle.
-     */
-
-
-    _createClass(Rectangle, [{
-        key: "initFromBounds",
-        value: function initFromBounds(left, right, bottom, top) {
-            this.left = left;
-            this.right = right;
-            this.bottom = bottom;
-            this.top = top;
-        }
-
-        /**
-         * Initialize a Rectangle to the minimum AABB around a set of points.
-         * @param {Array<Array<number>>} points Array of [x, y] points.
-         */
-
-    }, {
-        key: "initFromPointsAABB",
-        value: function initFromPointsAABB(points) {
-            this.left = Infinity;
-            this.right = -Infinity;
-            this.top = -Infinity;
-            this.bottom = Infinity;
-
-            for (var i = 0; i < points.length; i++) {
-                var x = points[i][0];
-                var y = points[i][1];
-                if (x < this.left) {
-                    this.left = x;
-                }
-                if (x > this.right) {
-                    this.right = x;
-                }
-                if (y > this.top) {
-                    this.top = y;
-                }
-                if (y < this.bottom) {
-                    this.bottom = y;
-                }
-            }
-        }
-
-        /**
-         * Determine if this Rectangle intersects some other.
-         * Note that this is a comparison assuming the Rectangle was
-         * initialized with Scratch-space bounds or points.
-         * @param {!Rectangle} other Rectangle to check if intersecting.
-         * @return {boolean} True if this Rectangle intersects other.
-         */
-
-    }, {
-        key: "intersects",
-        value: function intersects(other) {
-            return this.left <= other.right && other.left <= this.right && this.top >= other.bottom && other.top >= this.bottom;
-        }
-
-        /**
-         * Determine if this Rectangle fully contains some other.
-         * Note that this is a comparison assuming the Rectangle was
-         * initialized with Scratch-space bounds or points.
-         * @param {!Rectangle} other Rectangle to check if fully contained.
-         * @return {boolean} True if this Rectangle fully contains other.
-         */
-
-    }, {
-        key: "contains",
-        value: function contains(other) {
-            return other.left > this.left && other.right < this.right && other.top < this.top && other.bottom > this.bottom;
-        }
-
-        /**
-         * Clamp a Rectangle to bounds.
-         * @param {number} left Left clamp.
-         * @param {number} right Right clamp.
-         * @param {number} bottom Bottom clamp.
-         * @param {number} top Top clamp.
-         */
-
-    }, {
-        key: "clamp",
-        value: function clamp(left, right, bottom, top) {
-            this.left = Math.max(this.left, left);
-            this.right = Math.min(this.right, right);
-            this.bottom = Math.max(this.bottom, bottom);
-            this.top = Math.min(this.top, top);
-            // Ensure rectangle coordinates in order.
-            this.left = Math.min(this.left, this.right);
-            this.right = Math.max(this.right, this.left);
-            this.bottom = Math.min(this.bottom, this.top);
-            this.top = Math.max(this.top, this.bottom);
-        }
-
-        /**
-         * Push out the Rectangle to integer bounds.
-         */
-
-    }, {
-        key: "snapToInt",
-        value: function snapToInt() {
-            this.left = Math.floor(this.left);
-            this.right = Math.ceil(this.right);
-            this.bottom = Math.floor(this.bottom);
-            this.top = Math.ceil(this.top);
-        }
-
-        /**
-         * Compute the intersection of two bounding Rectangles.
-         * Could be an impossible box if they don't intersect.
-         * @param {Rectangle} a One rectangle
-         * @param {Rectangle} b Other rectangle
-         * @param {?Rectangle} result A resulting storage rectangle  (safe to pass
-         *                            a or b if you want to overwrite one)
-         * @returns {Rectangle} resulting rectangle
-         */
-
-    }, {
-        key: "width",
-
-
-        /**
-         * Width of the Rectangle.
-         * @return {number} Width of rectangle.
-         */
-        get: function get() {
-            return Math.abs(this.left - this.right);
-        }
-
-        /**
-         * Height of the Rectangle.
-         * @return {number} Height of rectangle.
-         */
-
-    }, {
-        key: "height",
-        get: function get() {
-            return Math.abs(this.top - this.bottom);
-        }
-    }], [{
-        key: "intersect",
-        value: function intersect(a, b) {
-            var result = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : new Rectangle();
-
-            result.left = Math.max(a.left, b.left);
-            result.right = Math.min(a.right, b.right);
-            result.top = Math.min(a.top, b.top);
-            result.bottom = Math.max(a.bottom, b.bottom);
-
-            return result;
-        }
-
-        /**
-         * Compute the union of two bounding Rectangles.
-         * @param {Rectangle} a One rectangle
-         * @param {Rectangle} b Other rectangle
-         * @param {?Rectangle} result A resulting storage rectangle  (safe to pass
-         *                            a or b if you want to overwrite one)
-         * @returns {Rectangle} resulting rectangle
-         */
-
-    }, {
-        key: "union",
-        value: function union(a, b) {
-            var result = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : new Rectangle();
-
-            result.left = Math.min(a.left, b.left);
-            result.right = Math.max(a.right, b.right);
-            // Scratch Space - +y is up
-            result.top = Math.max(a.top, b.top);
-            result.bottom = Math.min(a.bottom, b.bottom);
-            return result;
-        }
-    }]);
-
-    return Rectangle;
-}();
-
-module.exports = Rectangle;
-
-/***/ }),
-
 /***/ "./src/RenderConstants.js":
 /*!********************************!*\
   !*** ./src/RenderConstants.js ***!
@@ -13862,13 +13632,6 @@ module.exports = {
    * @const {int}
    */
   ID_NONE: -1,
-
-  /**
-   * Optimize for fewer than this number of Drawables sharing the same Skin.
-   * Going above this may cause middleware warnings or a performance penalty but should otherwise behave correctly.
-   * @const {int}
-   */
-  SKIN_SHARE_SOFT_LIMIT: 301,
 
   /**
    * @enum {string}
@@ -13913,14 +13676,9 @@ var hull = __webpack_require__(/*! hull.js */ "./node_modules/hull.js/src/hull.j
 var twgl = __webpack_require__(/*! twgl.js */ "./node_modules/twgl.js/dist/4.x/twgl-full.js");
 
 var Drawable = __webpack_require__(/*! ./Drawable */ "./src/Drawable.js");
-var Rectangle = __webpack_require__(/*! ./Rectangle */ "./src/Rectangle.js");
 var ShaderManager = __webpack_require__(/*! ./ShaderManager */ "./src/ShaderManager.js");
 var RenderConstants = __webpack_require__(/*! ./RenderConstants */ "./src/RenderConstants.js");
 var SVGSkin = __webpack_require__(/*! ./SVGSkin */ "./src/SVGSkin.js");
-
-var __candidatesBounds = new Rectangle();
-var __touchingColor = new Uint8ClampedArray(4);
-var __blendColor = new Uint8ClampedArray(4);
 
 /**
  * Maximum touch size for a picking check.
@@ -14020,9 +13778,6 @@ var RenderWebGL = function (_EventEmitter) {
 
         /** @type {function} */
         _this._exitRegion = null;
-
-        /** @type {Array.<snapshotCallback>} */
-        _this._snapshotCallbacks = [];
 
         _this._createGeometry();
 
@@ -14221,14 +13976,7 @@ var RenderWebGL = function (_EventEmitter) {
             gl.clearColor.apply(gl, this._backgroundColor);
             gl.clear(gl.COLOR_BUFFER_BIT);
 
-            this._drawThese(this._drawList, ShaderManager.DRAW_MODE.default, this._projection);
-            if (this._snapshotCallbacks.length > 0) {
-                var snapshot = gl.canvas.toDataURL();
-                this._snapshotCallbacks.forEach(function (cb) {
-                    return cb(snapshot);
-                });
-                this._snapshotCallbacks = [];
-            }
+            this._drawThese(this._drawList, this._projection);
         }
 
         /**
@@ -14241,13 +13989,6 @@ var RenderWebGL = function (_EventEmitter) {
         key: 'updateDrawableProperties',
         value: function updateDrawableProperties(drawableID, properties) {
             var drawable = this._allDrawables[drawableID];
-            if (!drawable) {
-                /**
-                 * @todo fix whatever's wrong in the VM which causes this, then add a warning or throw here.
-                 * Right now this happens so much on some projects that a warning or exception here can hang the browser.
-                 */
-                return;
-            }
             if ('skinId' in properties) {
                 drawable.skin = this._allSkins[properties.skinId];
             }
@@ -14327,20 +14068,12 @@ var RenderWebGL = function (_EventEmitter) {
          * Draw a set of Drawables, by drawable ID
          * @param {Array<int>} drawables The Drawable IDs to draw, possibly this._drawList.
          * @param {module:twgl/m4.Mat4} projection The projection matrix to use.
-         * @param {object} [opts] Options for drawing
-         * @param {idFilterFunc} opts.filter An optional filter function.
-         * @param {object.<string,*>} opts.extraUniforms Extra uniforms for the shaders.
-         * @param {int} opts.effectMask Bitmask for effects to allow
-         * @param {boolean} opts.ignoreVisibility Draw all, despite visibility (e.g. stamping, touching color)
          * @private
          */
 
     }, {
         key: '_drawThese',
-        value: function _drawThese(drawables, drawMode, projection) {
-            var opts = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : {};
-
-
+        value: function _drawThese(drawables, projection) {
             var gl = this._gl;
             var currentShader = null;
 
@@ -14348,15 +14081,7 @@ var RenderWebGL = function (_EventEmitter) {
             for (var drawableIndex = 0; drawableIndex < numDrawables; ++drawableIndex) {
                 var drawableID = drawables[drawableIndex];
 
-                // If we have a filter, check whether the ID fails
-                if (opts.filter && !opts.filter(drawableID)) continue;
-
                 var drawable = this._allDrawables[drawableID];
-                /** @todo check if drawable is inside the viewport before anything else */
-
-                // Hidden drawables (e.g., by a "hide" block) are not drawn unless
-                // the ignoreVisibility flag is used (e.g. for stamping or touchingColor).
-                if (!drawable.getVisible() && !opts.ignoreVisibility) continue;
 
                 // Combine drawable scale with the native vs. backing pixel ratio
                 var drawableScale = [drawable.scale[0] * this._gl.canvas.width / this._nativeSize[0], drawable.scale[1] * this._gl.canvas.height / this._nativeSize[1]];
@@ -14366,7 +14091,7 @@ var RenderWebGL = function (_EventEmitter) {
 
                 var uniforms = {};
 
-                var newShader = this._shaderManager.getShader(drawMode, 0);
+                var newShader = this._shaderManager.getShader();
 
                 // Manually perform region check. Do not create functions inside a
                 // loop.
@@ -14379,30 +14104,12 @@ var RenderWebGL = function (_EventEmitter) {
                     twgl.setBuffersAndAttributes(gl, currentShader, this._bufferInfo);
                     Object.assign(uniforms, {
                         u_projectionMatrix: projection,
-                        u_fudge: window.fudge || 0
+                        u_fudge: 0
                     });
                 }
 
                 Object.assign(uniforms, drawable.skin.getUniforms(), drawable.getUniforms());
-
-                // Apply extra uniforms after the Drawable's, to allow overwriting.
-                if (opts.extraUniforms) {
-                    Object.assign(uniforms, opts.extraUniforms);
-                }
-
-                if (uniforms.u_skin) {
-                    twgl.setTextureParameters(gl, uniforms.u_skin, gl.LINEAR);
-                }
-
                 twgl.setUniforms(currentShader, uniforms);
-
-                /* adjust blend function for this skin */
-                if (drawable.skin.hasPremultipliedAlpha) {
-                    gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-                } else {
-                    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-                }
-
                 twgl.drawBufferInfo(gl, this._bufferInfo, gl.TRIANGLES);
             }
 
@@ -14636,42 +14343,19 @@ var ShaderManager = function () {
         _classCallCheck(this, ShaderManager);
 
         this._gl = gl;
-
-        /**
-         * The cache of all shaders compiled so far, filled on demand.
-         * @type {Object<ShaderManager.DRAW_MODE, Array<ProgramInfo>>}
-         * @private
-         */
-        this._shaderCache = {};
-        for (var modeName in ShaderManager.DRAW_MODE) {
-            if (ShaderManager.DRAW_MODE.hasOwnProperty(modeName)) {
-                this._shaderCache[modeName] = [];
-            }
-        }
     }
 
     /**
      * Fetch the shader for a particular set of active effects.
      * Build the shader if necessary.
-     * @param {ShaderManager.DRAW_MODE} drawMode Draw normally, silhouette, etc.
-     * @param {int} effectBits Bitmask representing the enabled effects.
      * @returns {ProgramInfo} The shader's program info.
      */
 
 
     _createClass(ShaderManager, [{
         key: 'getShader',
-        value: function getShader(drawMode, effectBits) {
-            var cache = this._shaderCache[drawMode];
-            if (drawMode === ShaderManager.DRAW_MODE.silhouette) {
-                // Silhouette mode isn't affected by these effects.
-                effectBits &= ~(ShaderManager.EFFECT_INFO.color.mask | ShaderManager.EFFECT_INFO.brightness.mask);
-            }
-            var shader = cache[effectBits];
-            if (!shader) {
-                shader = cache[effectBits] = this._buildShader(drawMode, effectBits);
-            }
-            return shader;
+        value: function getShader() {
+            return this._buildShader();
         }
 
         /**
@@ -14684,15 +14368,8 @@ var ShaderManager = function () {
 
     }, {
         key: '_buildShader',
-        value: function _buildShader(drawMode, effectBits) {
-            var numEffects = ShaderManager.EFFECTS.length;
-
-            var defines = ['#define DRAW_MODE_' + drawMode];
-            for (var index = 0; index < numEffects; ++index) {
-                if ((effectBits & 1 << index) !== 0) {
-                    defines.push('#define ENABLE_' + ShaderManager.EFFECTS[index]);
-                }
-            }
+        value: function _buildShader() {
+            var defines = ['#define DRAW_MODE_default'];
 
             var definesText = defines.join('\n') + '\n';
 
@@ -14707,127 +14384,6 @@ var ShaderManager = function () {
 
     return ShaderManager;
 }();
-
-/**
- * @typedef {object} ShaderManager.Effect
- * @prop {int} mask - The bit in 'effectBits' representing the effect.
- * @prop {function} converter - A conversion function which takes a Scratch value (generally in the range
- *   0..100 or -100..100) and maps it to a value useful to the shader. This
- *   mapping may not be reversible.
- * @prop {boolean} shapeChanges - Whether the effect could change the drawn shape.
- */
-
-/**
- * Mapping of each effect name to info about that effect.
- * @enum {ShaderManager.Effect}
- */
-
-
-ShaderManager.EFFECT_INFO = {
-    /** Color effect */
-    color: {
-        uniformName: 'u_color',
-        mask: 1 << 0,
-        converter: function converter(x) {
-            return x / 200 % 1;
-        },
-        shapeChanges: false
-    },
-    /** Fisheye effect */
-    fisheye: {
-        uniformName: 'u_fisheye',
-        mask: 1 << 1,
-        converter: function converter(x) {
-            return Math.max(0, (x + 100) / 100);
-        },
-        shapeChanges: true
-    },
-    /** Whirl effect */
-    whirl: {
-        uniformName: 'u_whirl',
-        mask: 1 << 2,
-        converter: function converter(x) {
-            return -x * Math.PI / 180;
-        },
-        shapeChanges: true
-    },
-    /** Pixelate effect */
-    pixelate: {
-        uniformName: 'u_pixelate',
-        mask: 1 << 3,
-        converter: function converter(x) {
-            return Math.abs(x) / 10;
-        },
-        shapeChanges: true
-    },
-    /** Mosaic effect */
-    mosaic: {
-        uniformName: 'u_mosaic',
-        mask: 1 << 4,
-        converter: function converter(x) {
-            x = Math.round((Math.abs(x) + 10) / 10);
-            /** @todo cap by Math.min(srcWidth, srcHeight) */
-            return Math.max(1, Math.min(x, 512));
-        },
-        shapeChanges: true
-    },
-    /** Brightness effect */
-    brightness: {
-        uniformName: 'u_brightness',
-        mask: 1 << 5,
-        converter: function converter(x) {
-            return Math.max(-100, Math.min(x, 100)) / 100;
-        },
-        shapeChanges: false
-    },
-    /** Ghost effect */
-    ghost: {
-        uniformName: 'u_ghost',
-        mask: 1 << 6,
-        converter: function converter(x) {
-            return 1 - Math.max(0, Math.min(x, 100)) / 100;
-        },
-        shapeChanges: false
-    }
-};
-
-/**
- * The name of each supported effect.
- * @type {Array}
- */
-ShaderManager.EFFECTS = Object.keys(ShaderManager.EFFECT_INFO);
-
-/**
- * The available draw modes.
- * @readonly
- * @enum {string}
- */
-ShaderManager.DRAW_MODE = {
-    /**
-     * Draw normally.
-     */
-    default: 'default',
-
-    /**
-     * Draw a silhouette using a solid color.
-     */
-    silhouette: 'silhouette',
-
-    /**
-     * Draw only the parts of the drawable which match a particular color.
-     */
-    colorMask: 'colorMask',
-
-    /**
-     * Sample a "texture" to draw a line with caps.
-     */
-    lineSample: 'lineSample',
-
-    /**
-     * Draw normally except for pre-multiplied alpha
-     */
-    stamp: 'stamp'
-};
 
 module.exports = ShaderManager;
 
