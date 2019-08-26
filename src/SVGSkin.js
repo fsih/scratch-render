@@ -74,11 +74,10 @@ class SVGSkin extends EventEmitter {
 
     /**
      * Update and returns the uniforms for this skin.
-     * @param {Array<number>} scale - The scaling factors to be used.
      * @returns {object.<string, *>} the shader uniforms to be used when rendering with this Skin.
      */
-    getUniforms (scale) {
-        this._uniforms.u_skin = this.getTexture(scale);
+    getUniforms () {
+        this._uniforms.u_skin = this.getTexture();
         this._uniforms.u_skinSize = this.size;
         return this._uniforms;
     }

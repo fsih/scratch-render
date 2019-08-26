@@ -1,6 +1,5 @@
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const path = require('path');
-const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 
 const base = {
     mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
@@ -22,13 +21,6 @@ const base = {
                     presets: [['env', {targets: {browsers: ['last 3 versions', 'Safari >= 8', 'iOS >= 8']}}]]
                 }
             }
-        ]
-    },
-    optimization: {
-        minimizer: [
-            new UglifyJsPlugin({
-                include: /\.min\.js$/
-            })
         ]
     },
     plugins: []

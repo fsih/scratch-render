@@ -310,7 +310,6 @@ class RenderWebGL extends EventEmitter {
         if ('skinId' in properties) {
             drawable.skin = this._allSkins[properties.skinId];
         }
-        drawable.updateProperties(properties);
     }
 
     /* ******
@@ -448,7 +447,7 @@ class RenderWebGL extends EventEmitter {
             }
 
             Object.assign(uniforms,
-                drawable.skin.getUniforms(drawableScale),
+                drawable.skin.getUniforms(),
                 drawable.getUniforms());
 
             // Apply extra uniforms after the Drawable's, to allow overwriting.
@@ -457,9 +456,7 @@ class RenderWebGL extends EventEmitter {
             }
 
             if (uniforms.u_skin) {
-                twgl.setTextureParameters(
-                    gl, uniforms.u_skin, {minMag: drawable.useNearest ? gl.NEAREST : gl.LINEAR}
-                );
+                twgl.setTextureParameters(gl, uniforms.u_skin, gl.LINEAR);
             }
 
             twgl.setUniforms(currentShader, uniforms);

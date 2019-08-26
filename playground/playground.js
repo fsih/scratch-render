@@ -13452,7 +13452,7 @@ var twgl = __webpack_require__(/*! twgl.js */ "./node_modules/twgl.js/dist/4.x/t
 
 var Rectangle = __webpack_require__(/*! ./Rectangle */ "./src/Rectangle.js");
 var RenderConstants = __webpack_require__(/*! ./RenderConstants */ "./src/RenderConstants.js");
-var Skin = __webpack_require__(/*! ./Skin */ "./src/Skin.js");
+var SVGSkin = __webpack_require__(/*! ./SVGSkin */ "./src/SVGSkin.js");
 
 var Drawable = function () {
     /**
@@ -13731,7 +13731,7 @@ var Drawable = function () {
         }
 
         /**
-         * @returns {Skin} the current skin for this Drawable.
+         * @returns {SVGSkin} the current skin for this Drawable.
          */
 
     }, {
@@ -13741,7 +13741,7 @@ var Drawable = function () {
         }
 
         /**
-         * @param {Skin} newSkin - A new Skin for this Drawable.
+         * @param {SVGSkin} newSkin - A new Skin for this Drawable.
          */
         ,
         set: function set(newSkin) {
@@ -14425,10 +14425,6 @@ var RenderWebGL = function (_EventEmitter) {
             if ('skinId' in properties) {
                 drawable.skin = this._allSkins[properties.skinId];
             }
-            if ('rotationCenter' in properties) {
-                var newRotationCenter = properties.rotationCenter;
-                drawable.skin.setRotationCenter(newRotationCenter[0], newRotationCenter[1]);
-            }
             drawable.updateProperties(properties);
         }
 
@@ -14632,8 +14628,6 @@ module.exports = RenderWebGL;
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
-
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
@@ -14641,14 +14635,11 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
 var twgl = __webpack_require__(/*! twgl.js */ "./node_modules/twgl.js/dist/4.x/twgl-full.js");
-
-var Skin = __webpack_require__(/*! ./Skin */ "./src/Skin.js");
+var EventEmitter = __webpack_require__(/*! events */ "./node_modules/events/events.js");
 var SvgRenderer = __webpack_require__(/*! scratch-svg-renderer */ "./node_modules/scratch-svg-renderer/src/index.js").SVGRenderer;
 
-var MAX_TEXTURE_DIMENSION = 2048;
-
-var SVGSkin = function (_Skin) {
-    _inherits(SVGSkin, _Skin);
+var SVGSkin = function (_EventEmitter) {
+    _inherits(SVGSkin, _EventEmitter);
 
     /**
      * Create a new SVG skin.
@@ -14660,9 +14651,35 @@ var SVGSkin = function (_Skin) {
     function SVGSkin(id, renderer) {
         _classCallCheck(this, SVGSkin);
 
-        /** @type {RenderWebGL} */
-        var _this = _possibleConstructorReturn(this, (SVGSkin.__proto__ || Object.getPrototypeOf(SVGSkin)).call(this, id));
+        /** @type {int} */
+        var _this = _possibleConstructorReturn(this, (SVGSkin.__proto__ || Object.getPrototypeOf(SVGSkin)).call(this));
 
+        _this._id = id;
+
+        /** @type {Vec3} */
+        _this._rotationCenter = twgl.v3.create(0, 0);
+
+        /**
+         * The uniforms to be used by the vertex and pixel shaders.
+         * Some of these are used by other parts of the renderer as well.
+         * @type {Object.<string,*>}
+         * @private
+         */
+        _this._uniforms = {
+            /**
+             * The nominal (not necessarily current) size of the current skin.
+             * @type {Array<number>}
+             */
+            u_skinSize: [0, 0],
+
+            /**
+             * The actual WebGL texture object for the skin.
+             * @type {WebGLTexture}
+             */
+            u_skin: null
+        };
+
+        /** @type {RenderWebGL} */
         _this._renderer = renderer;
 
         /** @type {SvgRenderer} */
@@ -14670,134 +14687,85 @@ var SVGSkin = function (_Skin) {
 
         /** @type {WebGLTexture} */
         _this._texture = null;
-
-        /** @type {number} */
-        _this._textureScale = 1;
-
-        /** @type {Number} */
-        _this._maxTextureScale = 0;
         return _this;
     }
 
     /**
-     * Dispose of this object. Do not use it after calling this method.
+     * @return {Array<number>} the natural size, in Scratch units, of this skin.
      */
 
 
     _createClass(SVGSkin, [{
-        key: 'dispose',
-        value: function dispose() {
-            if (this._texture) {
-                this._renderer.gl.deleteTexture(this._texture);
-                this._texture = null;
-            }
-            _get(SVGSkin.prototype.__proto__ || Object.getPrototypeOf(SVGSkin.prototype), 'dispose', this).call(this);
-        }
+        key: 'getTexture',
 
-        /**
-         * @return {Array<number>} the natural size, in Scratch units, of this skin.
-         */
-
-    }, {
-        key: 'setRotationCenter',
-
-
-        /**
-         * Set the origin, in object space, about which this Skin should rotate.
-         * @param {number} x - The x coordinate of the new rotation center.
-         * @param {number} y - The y coordinate of the new rotation center.
-         */
-        value: function setRotationCenter(x, y) {
-            var viewOffset = this._svgRenderer.viewOffset;
-            _get(SVGSkin.prototype.__proto__ || Object.getPrototypeOf(SVGSkin.prototype), 'setRotationCenter', this).call(this, x - viewOffset[0], y - viewOffset[1]);
-        }
 
         /**
          * @param {Array<number>} scale - The scaling factors to be used, each in the [0,100] range.
          * @return {WebGLTexture} The GL texture representation of this skin when drawing at the given scale.
          */
         // eslint-disable-next-line no-unused-vars
+        value: function getTexture() {
+            return this._texture;
+        }
+
+        /**
+         * @returns {Vec3} the origin, in object space, about which this Skin should rotate.
+         */
 
     }, {
-        key: 'getTexture',
-        value: function getTexture(scale) {
-            var _this2 = this;
+        key: 'getUniforms',
 
-            // The texture only ever gets uniform scale. Take the larger of the two axes.
-            var scaleMax = scale ? Math.max(Math.abs(scale[0]), Math.abs(scale[1])) : 100;
-            var requestedScale = Math.min(scaleMax / 100, this._maxTextureScale);
-            var newScale = this._textureScale;
-            while (newScale < this._maxTextureScale && requestedScale >= 1.5 * newScale) {
-                newScale *= 2;
-            }
-            if (this._textureScale !== newScale) {
-                this._textureScale = newScale;
-                this._svgRenderer._draw(this._textureScale, function () {
-                    if (_this2._textureScale === newScale) {
-                        var canvas = _this2._svgRenderer.canvas;
-                        var context = canvas.getContext('2d');
-                        var textureData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-                        var gl = _this2._renderer.gl;
-                        gl.bindTexture(gl.TEXTURE_2D, _this2._texture);
-                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textureData);
-                        _this2._silhouette.update(textureData);
-                    }
-                });
-            }
+        /**
+         * Update and returns the uniforms for this skin.
+         * @param {Array<number>} scale - The scaling factors to be used.
+         * @returns {object.<string, *>} the shader uniforms to be used when rendering with this Skin.
+         */
+        value: function getUniforms(scale) {
+            this._uniforms.u_skin = this.getTexture(scale);
+            this._uniforms.u_skinSize = this.size;
+            return this._uniforms;
+        }
 
-            return this._texture;
+        /**
+         * Set the origin, in object space, about which this Skin should rotate.
+         */
+
+    }, {
+        key: 'setRotationCenter',
+        value: function setRotationCenter() {
+            this._rotationCenter[0] = this.size[0] / 2;
+            this._rotationCenter[1] = this.size[1] / 2;
         }
 
         /**
          * Set the contents of this skin to a snapshot of the provided SVG data.
          * @param {string} svgData - new SVG to use.
-         * @param {Array<number>} [rotationCenter] - Optional rotation center for the SVG. If not supplied, it will be
          * calculated from the bounding box
-         * @fires Skin.event:WasAltered
-         */
+        \     */
 
     }, {
         key: 'setSVG',
-        value: function setSVG(svgData, rotationCenter) {
-            var _this3 = this;
+        value: function setSVG(svgData) {
+            var _this2 = this;
 
             this._svgRenderer.fromString(svgData, 1, function () {
-                var gl = _this3._renderer.gl;
-                _this3._textureScale = _this3._maxTextureScale = 1;
+                var gl = _this2._renderer.gl;
 
                 // Pull out the ImageData from the canvas. ImageData speeds up
                 // updating Silhouette and is better handled by more browsers in
                 // regards to memory.
-                var canvas = _this3._svgRenderer.canvas;
+                var canvas = _this2._svgRenderer.canvas;
                 var context = canvas.getContext('2d');
                 var textureData = context.getImageData(0, 0, canvas.width, canvas.height);
+                var textureOptions = {
+                    auto: true,
+                    wrap: gl.CLAMP_TO_EDGE,
+                    src: textureData
+                };
 
-                if (_this3._texture) {
-                    gl.bindTexture(gl.TEXTURE_2D, _this3._texture);
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textureData);
-                    _this3._silhouette.update(textureData);
-                } else {
-                    // TODO: mipmaps?
-                    var textureOptions = {
-                        auto: true,
-                        wrap: gl.CLAMP_TO_EDGE,
-                        src: textureData
-                    };
-
-                    _this3._texture = twgl.createTexture(gl, textureOptions);
-                    _this3._silhouette.update(textureData);
-                }
-
-                var maxDimension = Math.max(_this3._svgRenderer.canvas.width, _this3._svgRenderer.canvas.height);
-                var testScale = 2;
-                for (testScale; maxDimension * testScale <= MAX_TEXTURE_DIMENSION; testScale *= 2) {
-                    _this3._maxTextureScale = testScale;
-                }
-
-                if (typeof rotationCenter === 'undefined') rotationCenter = _this3.calculateRotationCenter();
-                _this3.setRotationCenter.apply(_this3, rotationCenter);
-                _this3.emit(Skin.Events.WasAltered);
+                _this2._texture = twgl.createTexture(gl, textureOptions);
+                _this2.setRotationCenter();
             });
         }
     }, {
@@ -14805,10 +14773,15 @@ var SVGSkin = function (_Skin) {
         get: function get() {
             return this._svgRenderer.size;
         }
+    }, {
+        key: 'rotationCenter',
+        get: function get() {
+            return this._rotationCenter;
+        }
     }]);
 
     return SVGSkin;
-}(Skin);
+}(EventEmitter);
 
 module.exports = SVGSkin;
 
@@ -15036,451 +15009,6 @@ module.exports = ShaderManager;
 
 /***/ }),
 
-/***/ "./src/Silhouette.js":
-/*!***************************!*\
-  !*** ./src/Silhouette.js ***!
-  \***************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-/**
- * @fileoverview
- * A representation of a Skin's silhouette that can test if a point on the skin
- * renders a pixel where it is drawn.
- */
-
-/**
- * <canvas> element used to update Silhouette data from skin bitmap data.
- * @type {CanvasElement}
- */
-var __SilhouetteUpdateCanvas = void 0;
-
-/**
- * Internal helper function (in hopes that compiler can inline).  Get a pixel
- * from silhouette data, or 0 if outside it's bounds.
- * @private
- * @param {Silhouette} silhouette - has data width and height
- * @param {number} x - x
- * @param {number} y - y
- * @return {number} Alpha value for x/y position
- */
-var getPoint = function getPoint(_ref, x, y) {
-    var width = _ref._width,
-        height = _ref._height,
-        data = _ref._colorData;
-
-    // 0 if outside bouds, otherwise read from data.
-    if (x >= width || y >= height || x < 0 || y < 0) {
-        return 0;
-    }
-    return data[(y * width + x) * 4 + 3];
-};
-
-/**
- * Memory buffers for doing 4 corner sampling for linear interpolation
- */
-var __cornerWork = [new Uint8ClampedArray(4), new Uint8ClampedArray(4), new Uint8ClampedArray(4), new Uint8ClampedArray(4)];
-
-/**
- * Get the color from a given silhouette at an x/y local texture position.
- * @param {Silhouette} The silhouette to sample.
- * @param {number} x X position of texture (0-1).
- * @param {number} y Y position of texture (0-1).
- * @param {Uint8ClampedArray} dst A color 4b space.
- * @return {Uint8ClampedArray} The dst vector.
- */
-var getColor4b = function getColor4b(_ref2, x, y, dst) {
-    var width = _ref2._width,
-        height = _ref2._height,
-        data = _ref2._colorData;
-
-    // 0 if outside bouds, otherwise read from data.
-    if (x >= width || y >= height || x < 0 || y < 0) {
-        return dst.fill(0);
-    }
-    var offset = (y * width + x) * 4;
-    dst[0] = data[offset];
-    dst[1] = data[offset + 1];
-    dst[2] = data[offset + 2];
-    dst[3] = data[offset + 3];
-    return dst;
-};
-
-var Silhouette = function () {
-    function Silhouette() {
-        _classCallCheck(this, Silhouette);
-
-        /**
-         * The width of the data representing the current skin data.
-         * @type {number}
-         */
-        this._width = 0;
-
-        /**
-         * The height of the data representing the current skin date.
-         * @type {number}
-         */
-        this._height = 0;
-
-        /**
-         * The data representing a skin's silhouette shape.
-         * @type {Uint8ClampedArray}
-         */
-        this._colorData = null;
-
-        this.colorAtNearest = this.colorAtLinear = function (_, dst) {
-            return dst.fill(0);
-        };
-    }
-
-    /**
-     * Update this silhouette with the bitmapData for a skin.
-     * @param {*} bitmapData An image, canvas or other element that the skin
-     * rendering can be queried from.
-     */
-
-
-    _createClass(Silhouette, [{
-        key: 'update',
-        value: function update(bitmapData) {
-            var imageData = void 0;
-            if (bitmapData instanceof ImageData) {
-                // If handed ImageData directly, use it directly.
-                imageData = bitmapData;
-                this._width = bitmapData.width;
-                this._height = bitmapData.height;
-            } else {
-                // Draw about anything else to our update canvas and poll image data
-                // from that.
-                var canvas = Silhouette._updateCanvas();
-                var width = this._width = canvas.width = bitmapData.width;
-                var height = this._height = canvas.height = bitmapData.height;
-                var ctx = canvas.getContext('2d');
-
-                if (!(width && height)) {
-                    return;
-                }
-                ctx.clearRect(0, 0, width, height);
-                ctx.drawImage(bitmapData, 0, 0, width, height);
-                imageData = ctx.getImageData(0, 0, width, height);
-            }
-
-            this._colorData = imageData.data;
-            // delete our custom overriden "uninitalized" color functions
-            // let the prototype work for itself
-            delete this.colorAtNearest;
-            delete this.colorAtLinear;
-        }
-
-        /**
-         * Sample a color from the silhouette at a given local position using
-         * "nearest neighbor"
-         * @param {twgl.v3} vec [x,y] texture space (0-1)
-         * @param {Uint8ClampedArray} dst The memory buffer to store the value in. (4 bytes)
-         * @returns {Uint8ClampedArray} dst
-         */
-
-    }, {
-        key: 'colorAtNearest',
-        value: function colorAtNearest(vec, dst) {
-            return getColor4b(this, Math.floor(vec[0] * (this._width - 1)), Math.floor(vec[1] * (this._height - 1)), dst);
-        }
-
-        /**
-         * Sample a color from the silhouette at a given local position using
-         * "linear interpolation"
-         * @param {twgl.v3} vec [x,y] texture space (0-1)
-         * @param {Uint8ClampedArray} dst The memory buffer to store the value in. (4 bytes)
-         * @returns {Uint8ClampedArray} dst
-         */
-
-    }, {
-        key: 'colorAtLinear',
-        value: function colorAtLinear(vec, dst) {
-            var x = vec[0] * (this._width - 1);
-            var y = vec[1] * (this._height - 1);
-
-            var x1D = x % 1;
-            var y1D = y % 1;
-            var x0D = 1 - x1D;
-            var y0D = 1 - y1D;
-
-            var xFloor = Math.floor(x);
-            var yFloor = Math.floor(y);
-
-            var x0y0 = getColor4b(this, xFloor, yFloor, __cornerWork[0]);
-            var x1y0 = getColor4b(this, xFloor + 1, yFloor, __cornerWork[1]);
-            var x0y1 = getColor4b(this, xFloor, yFloor + 1, __cornerWork[2]);
-            var x1y1 = getColor4b(this, xFloor + 1, yFloor + 1, __cornerWork[3]);
-
-            dst[0] = x0y0[0] * x0D * y0D + x0y1[0] * x0D * y1D + x1y0[0] * x1D * y0D + x1y1[0] * x1D * y1D;
-            dst[1] = x0y0[1] * x0D * y0D + x0y1[1] * x0D * y1D + x1y0[1] * x1D * y0D + x1y1[1] * x1D * y1D;
-            dst[2] = x0y0[2] * x0D * y0D + x0y1[2] * x0D * y1D + x1y0[2] * x1D * y0D + x1y1[2] * x1D * y1D;
-            dst[3] = x0y0[3] * x0D * y0D + x0y1[3] * x0D * y1D + x1y0[3] * x1D * y0D + x1y1[3] * x1D * y1D;
-
-            return dst;
-        }
-
-        /**
-         * Get the canvas element reused by Silhouettes to update their data with.
-         * @private
-         * @return {CanvasElement} A canvas to draw bitmap data to.
-         */
-
-    }], [{
-        key: '_updateCanvas',
-        value: function _updateCanvas() {
-            if (typeof __SilhouetteUpdateCanvas === 'undefined') {
-                __SilhouetteUpdateCanvas = document.createElement('canvas');
-            }
-            return __SilhouetteUpdateCanvas;
-        }
-    }]);
-
-    return Silhouette;
-}();
-
-module.exports = Silhouette;
-
-/***/ }),
-
-/***/ "./src/Skin.js":
-/*!*********************!*\
-  !*** ./src/Skin.js ***!
-  \*********************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var EventEmitter = __webpack_require__(/*! events */ "./node_modules/events/events.js");
-
-var twgl = __webpack_require__(/*! twgl.js */ "./node_modules/twgl.js/dist/4.x/twgl-full.js");
-
-var RenderConstants = __webpack_require__(/*! ./RenderConstants */ "./src/RenderConstants.js");
-var Silhouette = __webpack_require__(/*! ./Silhouette */ "./src/Silhouette.js");
-
-/**
- * Truncate a number into what could be stored in a 32 bit floating point value.
- * @param {number} num Number to truncate.
- * @return {number} Truncated value.
- */
-var toFloat32 = function () {
-  var memory = new Float32Array(1);
-  return function (num) {
-    memory[0] = num;
-    return memory[0];
-  };
-}();
-
-var Skin = function (_EventEmitter) {
-  _inherits(Skin, _EventEmitter);
-
-  /**
-   * Create a Skin, which stores and/or generates textures for use in rendering.
-   * @param {int} id - The unique ID for this Skin.
-   * @constructor
-   */
-  function Skin(id) {
-    _classCallCheck(this, Skin);
-
-    /** @type {int} */
-    var _this = _possibleConstructorReturn(this, (Skin.__proto__ || Object.getPrototypeOf(Skin)).call(this));
-
-    _this._id = id;
-
-    /** @type {Vec3} */
-    _this._rotationCenter = twgl.v3.create(0, 0);
-
-    /**
-     * The uniforms to be used by the vertex and pixel shaders.
-     * Some of these are used by other parts of the renderer as well.
-     * @type {Object.<string,*>}
-     * @private
-     */
-    _this._uniforms = {
-      /**
-       * The nominal (not necessarily current) size of the current skin.
-       * @type {Array<number>}
-       */
-      u_skinSize: [0, 0],
-
-      /**
-       * The actual WebGL texture object for the skin.
-       * @type {WebGLTexture}
-       */
-      u_skin: null
-    };
-
-    /**
-     * A silhouette to store touching data, skins are responsible for keeping it up to date.
-     * @private
-     */
-    _this._silhouette = new Silhouette();
-
-    _this.setMaxListeners(RenderConstants.SKIN_SHARE_SOFT_LIMIT);
-    return _this;
-  }
-
-  /**
-   * Dispose of this object. Do not use it after calling this method.
-   */
-
-
-  _createClass(Skin, [{
-    key: 'dispose',
-    value: function dispose() {
-      this._id = RenderConstants.ID_NONE;
-    }
-
-    /**
-     * @returns {boolean} true if alpha is premultiplied, false otherwise
-     */
-
-  }, {
-    key: 'setRotationCenter',
-
-
-    /**
-     * Set the origin, in object space, about which this Skin should rotate.
-     * @param {number} x - The x coordinate of the new rotation center.
-     * @param {number} y - The y coordinate of the new rotation center.
-     * @fires Skin.event:WasAltered
-     */
-    value: function setRotationCenter(x, y) {
-      var emptySkin = this.size[0] === 0 && this.size[1] === 0;
-      // Compare a 32 bit x and y value against the stored 32 bit center
-      // values.
-      var changed = toFloat32(x) !== this._rotationCenter[0] || toFloat32(y) !== this._rotationCenter[1];
-      if (!emptySkin && changed) {
-        this._rotationCenter[0] = x;
-        this._rotationCenter[1] = y;
-        this.emit(Skin.Events.WasAltered);
-      }
-    }
-
-    /**
-     * Get the center of the current bounding box
-     * @return {Array<number>} the center of the current bounding box
-     */
-
-  }, {
-    key: 'calculateRotationCenter',
-    value: function calculateRotationCenter() {
-      return [this.size[0] / 2, this.size[1] / 2];
-    }
-
-    /**
-     * @abstract
-     * @param {Array<number>} scale - The scaling factors to be used.
-     * @return {WebGLTexture} The GL texture representation of this skin when drawing at the given size.
-     */
-    // eslint-disable-next-line no-unused-vars
-
-  }, {
-    key: 'getTexture',
-    value: function getTexture(scale) {
-      return null;
-    }
-
-    /**
-     * Update and returns the uniforms for this skin.
-     * @param {Array<number>} scale - The scaling factors to be used.
-     * @returns {object.<string, *>} the shader uniforms to be used when rendering with this Skin.
-     */
-
-  }, {
-    key: 'getUniforms',
-    value: function getUniforms(scale) {
-      this._uniforms.u_skin = this.getTexture(scale);
-      this._uniforms.u_skinSize = this.size;
-      return this._uniforms;
-    }
-
-    /**
-     * If the skin defers silhouette operations until the last possible minute,
-     * this will be called before isTouching uses the silhouette.
-     * @abstract
-     */
-
-  }, {
-    key: 'updateSilhouette',
-    value: function updateSilhouette() {}
-  }, {
-    key: 'hasPremultipliedAlpha',
-    get: function get() {
-      return false;
-    }
-
-    /**
-     * @return {int} the unique ID for this Skin.
-     */
-
-  }, {
-    key: 'id',
-    get: function get() {
-      return this._id;
-    }
-
-    /**
-     * @returns {Vec3} the origin, in object space, about which this Skin should rotate.
-     */
-
-  }, {
-    key: 'rotationCenter',
-    get: function get() {
-      return this._rotationCenter;
-    }
-
-    /**
-     * @abstract
-     * @return {Array<number>} the "native" size, in texels, of this skin.
-     */
-
-  }, {
-    key: 'size',
-    get: function get() {
-      return [0, 0];
-    }
-  }]);
-
-  return Skin;
-}(EventEmitter);
-
-/**
- * These are the events which can be emitted by instances of this class.
- * @enum {string}
- */
-
-
-Skin.Events = {
-  /**
-   * Emitted when anything about the Skin has been altered, such as the appearance or rotation center.
-   * @event Skin.event:WasAltered
-   */
-  WasAltered: 'WasAltered'
-};
-
-module.exports = Skin;
-
-/***/ }),
-
 /***/ "./src/playground/playground.js":
 /*!**************************************!*\
   !*** ./src/playground/playground.js ***!
@@ -15495,9 +15023,9 @@ var ScratchRender = __webpack_require__(/*! ../RenderWebGL */ "./src/RenderWebGL
 
 var canvas = document.getElementById('scratch-stage');
 var renderer = new ScratchRender(canvas);
-renderer.setLayerGroupOrdering(['group1']);
+renderer.setLayerGroupOrdering(['cat']);
 
-var drawableID2 = renderer.createDrawable('group1');
+var drawableID2 = renderer.createDrawable('cat');
 
 // SVG (cat 1-a)
 var xhr = new XMLHttpRequest();
