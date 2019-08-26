@@ -5,7 +5,3 @@ body {
 canvas {
 	border: 3px dashed black;
 }
-
-#debug-canvas {
-	border-color: red;
-}

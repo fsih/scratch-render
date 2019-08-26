@@ -39,8 +39,7 @@ module.exports = [
     Object.assign({}, base, {
         target: 'web',
         entry: {
-            playground: './src/playground/playground.js',
-            queryPlayground: './src/playground/queryPlayground.js'
+            playground: './src/playground/playground.js'
         },
         output: {
             libraryTarget: 'umd',
