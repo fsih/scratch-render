@@ -12,6 +12,3 @@ npm-*
 # IDEA
 /.idea
 
-# Build
-/dist
-/playground
