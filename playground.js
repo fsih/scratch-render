@@ -3,10 +3,10 @@
 		module.exports = factory();
 	else if(typeof define === 'function' && define.amd)
 		define([], factory);
-	else if(typeof exports === 'object')
-		exports["ScratchRender"] = factory();
-	else
-		root["ScratchRender"] = factory();
+	else {
+		var a = factory();
+		for(var i in a) (typeof exports === 'object' ? exports : root)[i] = a[i];
+	}
 })(window, function() {
 return /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -91,7 +91,7 @@ return /******/ (function(modules) { // webpackBootstrap
 /******/
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = "./src/index.js");
+/******/ 	return __webpack_require__(__webpack_require__.s = "./src/playground/playground.js");
 /******/ })
 /************************************************************************/
 /******/ ({
@@ -14833,26 +14833,43 @@ module.exports = ShaderManager;
 
 /***/ }),
 
-/***/ "./src/index.js":
-/*!**********************!*\
-  !*** ./src/index.js ***!
-  \**********************/
+/***/ "./src/playground/playground.js":
+/*!**************************************!*\
+  !*** ./src/playground/playground.js ***!
+  \**************************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var RenderWebGL = __webpack_require__(/*! ./RenderWebGL */ "./src/RenderWebGL.js");
+var ScratchRender = __webpack_require__(/*! ../RenderWebGL */ "./src/RenderWebGL.js");
 
-/**
- * Export for NPM & Node.js
- * @type {RenderWebGL}
- */
-module.exports = RenderWebGL;
+var canvas = document.getElementById('scratch-stage');
+var renderer = new ScratchRender(canvas);
+renderer.setLayerGroupOrdering(['cat']);
+
+var drawableID2 = renderer.createDrawable('cat');
+
+// SVG (cat 1-a)
+var xhr = new XMLHttpRequest();
+xhr.addEventListener('load', function () {
+    var skinId = renderer.createSVGSkin(xhr.responseText);
+    renderer.updateDrawableProperties(drawableID2, {
+        skinId: skinId
+    });
+});
+xhr.open('GET', 'https://cdn.assets.scratch.mit.edu/internalapi/asset/b7853f557e4426412e64bb3da6531a99.svg/get/');
+xhr.send();
+
+var drawStep = function drawStep() {
+    renderer.draw();
+    requestAnimationFrame(drawStep);
+};
+drawStep();
 
 /***/ })
 
 /******/ });
 });
-//# sourceMappingURL=scratch-render.min.js.map
+//# sourceMappingURL=playground.js.map
