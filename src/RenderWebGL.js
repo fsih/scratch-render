@@ -4,14 +4,9 @@ const hull = require('hull.js');
 const twgl = require('twgl.js');
 
 const Drawable = require('./Drawable');
-const Rectangle = require('./Rectangle');
 const ShaderManager = require('./ShaderManager');
 const RenderConstants = require('./RenderConstants');
 const SVGSkin = require('./SVGSkin');
-
-const __candidatesBounds = new Rectangle();
-const __touchingColor = new Uint8ClampedArray(4);
-const __blendColor = new Uint8ClampedArray(4);
 
 /**
  * Maximum touch size for a picking check.
@@ -102,9 +97,6 @@ class RenderWebGL extends EventEmitter {
 
         /** @type {function} */
         this._exitRegion = null;
-
-        /** @type {Array.<snapshotCallback>} */
-        this._snapshotCallbacks = [];
 
         this._createGeometry();
 
@@ -285,12 +277,7 @@ class RenderWebGL extends EventEmitter {
         gl.clearColor.apply(gl, this._backgroundColor);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
-        this._drawThese(this._drawList, ShaderManager.DRAW_MODE.default, this._projection);
-        if (this._snapshotCallbacks.length > 0) {
-            const snapshot = gl.canvas.toDataURL();
-            this._snapshotCallbacks.forEach(cb => cb(snapshot));
-            this._snapshotCallbacks = [];
-        }
+        this._drawThese(this._drawList, this._projection);
     }
 
     /**
@@ -300,13 +287,6 @@ class RenderWebGL extends EventEmitter {
      */
     updateDrawableProperties (drawableID, properties) {
         const drawable = this._allDrawables[drawableID];
-        if (!drawable) {
-            /**
-             * @todo fix whatever's wrong in the VM which causes this, then add a warning or throw here.
-             * Right now this happens so much on some projects that a warning or exception here can hang the browser.
-             */
-            return;
-        }
         if ('skinId' in properties) {
             drawable.skin = this._allSkins[properties.skinId];
         }
@@ -392,15 +372,9 @@ class RenderWebGL extends EventEmitter {
      * Draw a set of Drawables, by drawable ID
      * @param {Array<int>} drawables The Drawable IDs to draw, possibly this._drawList.
      * @param {module:twgl/m4.Mat4} projection The projection matrix to use.
-     * @param {object} [opts] Options for drawing
-     * @param {idFilterFunc} opts.filter An optional filter function.
-     * @param {object.<string,*>} opts.extraUniforms Extra uniforms for the shaders.
-     * @param {int} opts.effectMask Bitmask for effects to allow
-     * @param {boolean} opts.ignoreVisibility Draw all, despite visibility (e.g. stamping, touching color)
      * @private
      */
-    _drawThese (drawables, drawMode, projection, opts = {}) {
-
+    _drawThese (drawables, projection) {
         const gl = this._gl;
         let currentShader = null;
 
@@ -408,15 +382,7 @@ class RenderWebGL extends EventEmitter {
         for (let drawableIndex = 0; drawableIndex < numDrawables; ++drawableIndex) {
             const drawableID = drawables[drawableIndex];
 
-            // If we have a filter, check whether the ID fails
-            if (opts.filter && !opts.filter(drawableID)) continue;
-
             const drawable = this._allDrawables[drawableID];
-            /** @todo check if drawable is inside the viewport before anything else */
-
-            // Hidden drawables (e.g., by a "hide" block) are not drawn unless
-            // the ignoreVisibility flag is used (e.g. for stamping or touchingColor).
-            if (!drawable.getVisible() && !opts.ignoreVisibility) continue;
 
             // Combine drawable scale with the native vs. backing pixel ratio
             const drawableScale = [
@@ -429,7 +395,7 @@ class RenderWebGL extends EventEmitter {
 
             const uniforms = {};
 
-            const newShader = this._shaderManager.getShader(drawMode, 0);
+            const newShader = this._shaderManager.getShader();
 
             // Manually perform region check. Do not create functions inside a
             // loop.
@@ -442,32 +408,14 @@ class RenderWebGL extends EventEmitter {
                 twgl.setBuffersAndAttributes(gl, currentShader, this._bufferInfo);
                 Object.assign(uniforms, {
                     u_projectionMatrix: projection,
-                    u_fudge: window.fudge || 0
+                    u_fudge: 0
                 });
             }
 
             Object.assign(uniforms,
                 drawable.skin.getUniforms(),
                 drawable.getUniforms());
-
-            // Apply extra uniforms after the Drawable's, to allow overwriting.
-            if (opts.extraUniforms) {
-                Object.assign(uniforms, opts.extraUniforms);
-            }
-
-            if (uniforms.u_skin) {
-                twgl.setTextureParameters(gl, uniforms.u_skin, gl.LINEAR);
-            }
-
             twgl.setUniforms(currentShader, uniforms);
-            
-            /* adjust blend function for this skin */
-            if (drawable.skin.hasPremultipliedAlpha){
-                gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-            } else {
-                gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-            }
-            
             twgl.drawBufferInfo(gl, this._bufferInfo, gl.TRIANGLES);
         }
 

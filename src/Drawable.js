@@ -1,7 +1,4 @@
 const twgl = require('twgl.js');
-
-const Rectangle = require('./Rectangle');
-const RenderConstants = require('./RenderConstants');
 const SVGSkin = require('./SVGSkin');
 
 class Drawable {
@@ -82,14 +79,7 @@ class Drawable {
         this._calculateTransform();
         return this._uniforms;
     }
-
-    /**
-     * @returns {boolean} whether this Drawable is visible.
-     */
-    getVisible () {
-        return this._visible;
-    }
-
+    
     /**
      * Calculate the transform to use when rendering this Drawable.
      * @private
