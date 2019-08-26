@@ -70,13 +70,6 @@ class Skin extends EventEmitter {
     }
 
     /**
-     * @returns {boolean} true for a raster-style skin (like a BitmapSkin), false for vector-style (like SVGSkin).
-     */
-    get isRaster () {
-        return false;
-    }
-
-    /**
      * @returns {boolean} true if alpha is premultiplied, false otherwise
      */
     get hasPremultipliedAlpha () {
@@ -169,27 +162,6 @@ class Skin extends EventEmitter {
      * @abstract
      */
     updateSilhouette () {}
-
-    /**
-     * Does this point touch an opaque or translucent point on this skin?
-     * Nearest Neighbor version
-     * @param {twgl.v3} vec A texture coordinate.
-     * @return {boolean} Did it touch?
-     */
-    isTouchingNearest (vec) {
-        return this._silhouette.isTouchingNearest(vec);
-    }
-
-    /**
-     * Does this point touch an opaque or translucent point on this skin?
-     * Linear Interpolation version
-     * @param {twgl.v3} vec A texture coordinate.
-     * @return {boolean} Did it touch?
-     */
-    isTouchingLinear (vec) {
-        return this._silhouette.isTouchingLinear(vec);
-    }
-
 }
 
 /**

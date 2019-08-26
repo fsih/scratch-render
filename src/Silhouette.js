@@ -165,36 +165,6 @@ class Silhouette {
     }
 
     /**
-     * Test if texture coordinate touches the silhouette using nearest neighbor.
-     * @param {twgl.v3} vec A texture coordinate.
-     * @return {boolean} If the nearest pixel has an alpha value.
-     */
-    isTouchingNearest (vec) {
-        if (!this._colorData) return;
-        return getPoint(
-            this,
-            Math.floor(vec[0] * (this._width - 1)),
-            Math.floor(vec[1] * (this._height - 1))
-        ) > 0;
-    }
-
-    /**
-     * Test to see if any of the 4 pixels used in the linear interpolate touch
-     * the silhouette.
-     * @param {twgl.v3} vec A texture coordinate.
-     * @return {boolean} Any of the pixels have some alpha.
-     */
-    isTouchingLinear (vec) {
-        if (!this._colorData) return;
-        const x = Math.floor(vec[0] * (this._width - 1));
-        const y = Math.floor(vec[1] * (this._height - 1));
-        return getPoint(this, x, y) > 0 ||
-            getPoint(this, x + 1, y) > 0 ||
-            getPoint(this, x, y + 1) > 0 ||
-            getPoint(this, x + 1, y + 1) > 0;
-    }
-
-    /**
      * Get the canvas element reused by Silhouettes to update their data with.
      * @private
      * @return {CanvasElement} A canvas to draw bitmap data to.

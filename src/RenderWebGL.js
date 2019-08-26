@@ -3,18 +3,13 @@ const EventEmitter = require('events');
 const hull = require('hull.js');
 const twgl = require('twgl.js');
 
-const BitmapSkin = require('./BitmapSkin');
 const Drawable = require('./Drawable');
 const Rectangle = require('./Rectangle');
-const PenSkin = require('./PenSkin');
-const RenderConstants = require('./RenderConstants');
 const ShaderManager = require('./ShaderManager');
+const RenderConstants = require('./RenderConstants');
 const SVGSkin = require('./SVGSkin');
-const TextBubbleSkin = require('./TextBubbleSkin');
-const EffectTransform = require('./EffectTransform');
 const log = require('./util/log');
 
-const __isTouchingDrawablesPoint = twgl.v3.create();
 const __candidatesBounds = new Rectangle();
 const __touchingColor = new Uint8ClampedArray(4);
 const __blendColor = new Uint8ClampedArray(4);
@@ -166,11 +161,11 @@ class RenderWebGL extends EventEmitter {
         /** @type {int} */
         this._nextSkinId = RenderConstants.ID_NONE + 1;
 
-        /** @type {module:twgl/m4.Mat4} */
-        this._projection = twgl.m4.identity();
-
         /** @type {ShaderManager} */
         this._shaderManager = new ShaderManager(gl);
+
+        /** @type {module:twgl/m4.Mat4} */
+        this._projection = twgl.m4.identity();
 
         /** @type {HTMLCanvasElement} */
         this._tempCanvas = document.createElement('canvas');
@@ -291,22 +286,6 @@ class RenderWebGL extends EventEmitter {
     }
 
     /**
-     * Create a new bitmap skin from a snapshot of the provided bitmap data.
-     * @param {ImageData|HTMLImageElement|HTMLCanvasElement|HTMLVideoElement} bitmapData - new contents for this skin.
-     * @param {!int} [costumeResolution=1] - The resolution to use for this bitmap.
-     * @param {?Array<number>} [rotationCenter] Optional: rotation center of the skin. If not supplied, the center of
-     * the skin will be used.
-     * @returns {!int} the ID for the new skin.
-     */
-    createBitmapSkin (bitmapData, costumeResolution, rotationCenter) {
-        const skinId = this._nextSkinId++;
-        const newSkin = new BitmapSkin(skinId, this);
-        newSkin.setBitmap(bitmapData, costumeResolution, rotationCenter);
-        this._allSkins[skinId] = newSkin;
-        return skinId;
-    }
-
-    /**
      * Create a new SVG skin.
      * @param {!string} svgData - new SVG to use.
      * @param {?Array<number>} rotationCenter Optional: rotation center of the skin. If not supplied, the center of the
@@ -317,33 +296,6 @@ class RenderWebGL extends EventEmitter {
         const skinId = this._nextSkinId++;
         const newSkin = new SVGSkin(skinId, this);
         newSkin.setSVG(svgData, rotationCenter);
-        this._allSkins[skinId] = newSkin;
-        return skinId;
-    }
-
-    /**
-     * Create a new PenSkin - a skin which implements a Scratch pen layer.
-     * @returns {!int} the ID for the new skin.
-     */
-    createPenSkin () {
-        const skinId = this._nextSkinId++;
-        const newSkin = new PenSkin(skinId, this);
-        this._allSkins[skinId] = newSkin;
-        return skinId;
-    }
-
-    /**
-     * Create a new SVG skin using the text bubble svg creator. The rotation center
-     * is always placed at the top left.
-     * @param {!string} type - either "say" or "think".
-     * @param {!string} text - the text for the bubble.
-     * @param {!boolean} pointsLeft - which side the bubble is pointing.
-     * @returns {!int} the ID for the new skin.
-     */
-    createTextSkin (type, text, pointsLeft) {
-        const skinId = this._nextSkinId++;
-        const newSkin = new TextBubbleSkin(skinId, this);
-        newSkin.setTextBubble(type, text, pointsLeft);
         this._allSkins[skinId] = newSkin;
         return skinId;
     }
@@ -366,25 +318,6 @@ class RenderWebGL extends EventEmitter {
         this._reskin(skinId, newSkin);
     }
 
-    /**
-     * Update an existing bitmap skin, or create a bitmap skin if the previous skin was not bitmap.
-     * @param {!int} skinId the ID for the skin to change.
-     * @param {!ImageData|HTMLImageElement|HTMLCanvasElement|HTMLVideoElement} imgData - new contents for this skin.
-     * @param {!number} bitmapResolution - the resolution scale for a bitmap costume.
-     * @param {?Array<number>} rotationCenter Optional: rotation center of the skin. If not supplied, the center of the
-     * skin will be used
-     */
-    updateBitmapSkin (skinId, imgData, bitmapResolution, rotationCenter) {
-        if (this._allSkins[skinId] instanceof BitmapSkin) {
-            this._allSkins[skinId].setBitmap(imgData, bitmapResolution, rotationCenter);
-            return;
-        }
-
-        const newSkin = new BitmapSkin(skinId, this);
-        newSkin.setBitmap(imgData, bitmapResolution, rotationCenter);
-        this._reskin(skinId, newSkin);
-    }
-
     _reskin (skinId, newSkin) {
         const oldSkin = this._allSkins[skinId];
         this._allSkins[skinId] = newSkin;
@@ -399,25 +332,6 @@ class RenderWebGL extends EventEmitter {
         }
         oldSkin.dispose();
     }
-
-    /**
-     * Update a skin using the text bubble svg creator.
-     * @param {!int} skinId the ID for the skin to change.
-     * @param {!string} type - either "say" or "think".
-     * @param {!string} text - the text for the bubble.
-     * @param {!boolean} pointsLeft - which side the bubble is pointing.
-     */
-    updateTextSkin (skinId, type, text, pointsLeft) {
-        if (this._allSkins[skinId] instanceof TextBubbleSkin) {
-            this._allSkins[skinId].setTextBubble(type, text, pointsLeft);
-            return;
-        }
-
-        const newSkin = new TextBubbleSkin(skinId, this);
-        newSkin.setTextBubble(type, text, pointsLeft);
-        this._reskin(skinId, newSkin);
-    }
-
 
     /**
      * Destroy an existing skin. Do not use the skin or its ID after calling this.
@@ -719,67 +633,6 @@ class RenderWebGL extends EventEmitter {
         return skin.calculateRotationCenter();
     }
 
-    /**
-     * Check if a particular Drawable is touching a particular color.
-     * Unlike touching drawable, if the "tester" is invisble, we will still test.
-     * @param {int} drawableID The ID of the Drawable to check.
-     * @param {Array<int>} color3b Test if the Drawable is touching this color.
-     * @param {Array<int>} [mask3b] Optionally mask the check to this part of Drawable.
-     * @returns {boolean} True iff the Drawable is touching the color.
-     */
-    isTouchingColor (drawableID, color3b, mask3b) {
-        const candidates = this._candidatesTouching(drawableID, this._visibleDrawList);
-        if (candidates.length === 0) {
-            return false;
-        }
-
-        const bounds = this._candidatesBounds(candidates);
-
-        const maxPixelsForCPU = this._getMaxPixelsForCPU();
-
-        const debugCanvasContext = this._debugCanvas && this._debugCanvas.getContext('2d');
-        if (debugCanvasContext) {
-            this._debugCanvas.width = bounds.width;
-            this._debugCanvas.height = bounds.height;
-        }
-
-        // if there are just too many pixels to CPU render efficiently, we need to let readPixels happen
-        if (bounds.width * bounds.height * (candidates.length + 1) >= maxPixelsForCPU) {
-            this._isTouchingColorGpuStart(drawableID, candidates.map(({id}) => id).reverse(), bounds, color3b, mask3b);
-        }
-
-        const drawable = this._allDrawables[drawableID];
-        const point = __isTouchingDrawablesPoint;
-        const color = __touchingColor;
-        const hasMask = Boolean(mask3b);
-
-        // Scratch Space - +y is top
-        for (let y = bounds.bottom; y <= bounds.top; y++) {
-            if (bounds.width * (y - bounds.bottom) * (candidates.length + 1) >= maxPixelsForCPU) {
-                return this._isTouchingColorGpuFin(bounds, color3b, y - bounds.bottom);
-            }
-            for (let x = bounds.left; x <= bounds.right; x++) {
-                point[1] = y;
-                point[0] = x;
-                // if we use a mask, check our sample color...
-                if (hasMask ?
-                    maskMatches(Drawable.sampleColor4b(point, drawable, color), mask3b) :
-                    drawable.isTouching(point)) {
-                    RenderWebGL.sampleColor3b(point, candidates, color);
-                    if (debugCanvasContext) {
-                        debugCanvasContext.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
-                        debugCanvasContext.fillRect(x - bounds.left, bounds.bottom - y, 1, 1);
-                    }
-                    // ...and the target color is drawn at this pixel
-                    if (colorMatches(color, color3b, 0)) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
     _getMaxPixelsForCPU () {
         switch (this._useGpuMode) {
         case RenderWebGL.UseGpuModes.ForceCPU:
@@ -790,129 +643,6 @@ class RenderWebGL extends EventEmitter {
         default:
             return __cpuTouchingColorPixelCount;
         }
-    }
-
-    _isTouchingColorGpuStart (drawableID, candidateIDs, bounds, color3b, mask3b) {
-        this._doExitDrawRegion();
-
-        const gl = this._gl;
-        twgl.bindFramebufferInfo(gl, this._queryBufferInfo);
-
-        // Limit size of viewport to the bounds around the target Drawable,
-        // and create the projection matrix for the draw.
-        gl.viewport(0, 0, bounds.width, bounds.height);
-        const projection = twgl.m4.ortho(bounds.left, bounds.right, bounds.top, bounds.bottom, -1, 1);
-
-        let fillBackgroundColor = this._backgroundColor;
-
-        // When using masking such that the background fill color will showing through, ensure we don't
-        // fill using the same color that we are trying to detect!
-        if (color3b[0] > 196 && color3b[1] > 196 && color3b[2] > 196) {
-            fillBackgroundColor = [0, 0, 0, 255];
-        }
-
-        gl.clearColor.apply(gl, fillBackgroundColor);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
-
-        let extraUniforms;
-        if (mask3b) {
-            extraUniforms = {
-                u_colorMask: [mask3b[0] / 255, mask3b[1] / 255, mask3b[2] / 255],
-                u_colorMaskTolerance: MASK_TOUCHING_COLOR_TOLERANCE / 255
-            };
-        }
-
-        try {
-            gl.enable(gl.STENCIL_TEST);
-            gl.stencilFunc(gl.ALWAYS, 1, 1);
-            gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-            gl.colorMask(false, false, false, false);
-            this._drawThese(
-                [drawableID],
-                mask3b ?
-                    ShaderManager.DRAW_MODE.colorMask :
-                    ShaderManager.DRAW_MODE.silhouette,
-                projection,
-                {
-                    extraUniforms,
-                    ignoreVisibility: true // Touching color ignores sprite visibility
-                });
-
-            gl.stencilFunc(gl.EQUAL, 1, 1);
-            gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
-            gl.colorMask(true, true, true, true);
-
-            this._drawThese(candidateIDs, ShaderManager.DRAW_MODE.default, projection,
-                {idFilterFunc: testID => testID !== drawableID}
-            );
-        } finally {
-            gl.colorMask(true, true, true, true);
-            gl.disable(gl.STENCIL_TEST);
-        }
-    }
-
-    _isTouchingColorGpuFin (bounds, color3b, stop) {
-        const gl = this._gl;
-        const pixels = new Uint8Array(Math.floor(bounds.width * (bounds.height - stop) * 4));
-        gl.readPixels(0, 0, bounds.width, (bounds.height - stop), gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-
-        if (this._debugCanvas) {
-            this._debugCanvas.width = bounds.width;
-            this._debugCanvas.height = bounds.height;
-            const context = this._debugCanvas.getContext('2d');
-            const imageData = context.getImageData(0, 0, bounds.width, bounds.height - stop);
-            imageData.data.set(pixels);
-            context.putImageData(imageData, 0, 0);
-        }
-
-        for (let pixelBase = 0; pixelBase < pixels.length; pixelBase += 4) {
-            if (colorMatches(color3b, pixels, pixelBase)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Check if a particular Drawable is touching any in a set of Drawables.
-     * @param {int} drawableID The ID of the Drawable to check.
-     * @param {?Array<int>} candidateIDs The Drawable IDs to check, otherwise all visible drawables in the renderer
-     * @returns {boolean} True if the Drawable is touching one of candidateIDs.
-     */
-    isTouchingDrawables (drawableID, candidateIDs = this._drawList) {
-        const candidates = this._candidatesTouching(drawableID,
-            // even if passed an invisible drawable, we will NEVER touch it!
-            candidateIDs.filter(id => this._allDrawables[id]._visible));
-        // if we are invisble we don't touch anything.
-        if (candidates.length === 0 || !this._allDrawables[drawableID]._visible) {
-            return false;
-        }
-
-        // Get the union of all the candidates intersections.
-        const bounds = this._candidatesBounds(candidates);
-
-        const drawable = this._allDrawables[drawableID];
-        const point = __isTouchingDrawablesPoint;
-
-        // This is an EXTREMELY brute force collision detector, but it is
-        // still faster than asking the GPU to give us the pixels.
-        for (let x = bounds.left; x <= bounds.right; x++) {
-            // Scratch Space - +y is top
-            point[0] = x;
-            for (let y = bounds.bottom; y <= bounds.top; y++) {
-                point[1] = y;
-                if (drawable.isTouching(point)) {
-                    for (let index = 0; index < candidates.length; index++) {
-                        if (candidates[index].drawable.isTouching(point)) {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -950,114 +680,6 @@ class RenderWebGL extends EventEmitter {
         bounds.initFromBounds(Math.floor(this._xLeft + x + xOfs), Math.floor(this._xLeft + x + xOfs + width - 1),
             Math.ceil(this._yTop - y + yOfs), Math.ceil(this._yTop - y + yOfs + height - 1));
         return bounds;
-    }
-
-    /**
-     * Determine if the drawable is touching a client based x/y.  Helper method for sensing
-     * touching mouse-pointer.  Ignores visibility.
-     *
-     * @param {int} drawableID The ID of the drawable to check.
-     * @param {int} centerX The client x coordinate of the picking location.
-     * @param {int} centerY The client y coordinate of the picking location.
-     * @param {int} [touchWidth] The client width of the touch event (optional).
-     * @param {int} [touchHeight] The client height of the touch event (optional).
-     * @returns {boolean} If the drawable has any pixels that would draw in the touch area
-     */
-    drawableTouching (drawableID, centerX, centerY, touchWidth, touchHeight) {
-        const drawable = this._allDrawables[drawableID];
-        if (!drawable) {
-            return false;
-        }
-        const bounds = this.clientSpaceToScratchBounds(centerX, centerY, touchWidth, touchHeight);
-        const worldPos = twgl.v3.create();
-
-        drawable.updateMatrix();
-        if (drawable.skin) {
-            drawable.skin.updateSilhouette();
-        } else {
-            log.warn(`Could not find skin for drawable with id: ${drawableID}`);
-        }
-
-        for (worldPos[1] = bounds.bottom; worldPos[1] <= bounds.top; worldPos[1]++) {
-            for (worldPos[0] = bounds.left; worldPos[0] <= bounds.right; worldPos[0]++) {
-                if (drawable.isTouching(worldPos)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Detect which sprite, if any, is at the given location.
-     * This function will pick all drawables that are visible, unless specific
-     * candidate drawable IDs are provided.  Used for determining what is clicked
-     * or dragged.  Will not select hidden / ghosted sprites.
-     *
-     * @param {int} centerX The client x coordinate of the picking location.
-     * @param {int} centerY The client y coordinate of the picking location.
-     * @param {int} [touchWidth] The client width of the touch event (optional).
-     * @param {int} [touchHeight] The client height of the touch event (optional).
-     * @param {Array<int>} [candidateIDs] The Drawable IDs to pick from, otherwise all visible drawables.
-     * @returns {int} The ID of the topmost Drawable under the picking location, or
-     * RenderConstants.ID_NONE if there is no Drawable at that location.
-     */
-    pick (centerX, centerY, touchWidth, touchHeight, candidateIDs) {
-        candidateIDs = (candidateIDs || this._drawList).filter(id => {
-            const drawable = this._allDrawables[id];
-            // default pick list ignores visible and ghosted sprites.
-            if (drawable.getVisible() && drawable.getUniforms().u_ghost !== 0) {
-                drawable.updateMatrix();
-                if (drawable.skin) {
-                    drawable.skin.updateSilhouette();
-                } else {
-                    log.warn(`Could not find skin for drawable with id: ${id}`);
-                }
-                return true;
-            }
-            return false;
-        });
-        if (candidateIDs.length === 0) {
-            return false;
-        }
-
-        const bounds = this.clientSpaceToScratchBounds(centerX, centerY, touchWidth, touchHeight);
-        if (bounds.left === -Infinity || bounds.bottom === -Infinity) {
-            return false;
-        }
-
-        const hits = [];
-        const worldPos = twgl.v3.create(0, 0, 0);
-        // Iterate over the scratch pixels and check if any candidate can be
-        // touched at that point.
-        for (worldPos[1] = bounds.bottom; worldPos[1] <= bounds.top; worldPos[1]++) {
-            for (worldPos[0] = bounds.left; worldPos[0] <= bounds.right; worldPos[0]++) {
-
-                // Check candidates in the reverse order they would have been
-                // drawn. This will determine what candiate's silhouette pixel
-                // would have been drawn at the point.
-                for (let d = candidateIDs.length - 1; d >= 0; d--) {
-                    const id = candidateIDs[d];
-                    const drawable = this._allDrawables[id];
-                    if (drawable.isTouching(worldPos)) {
-                        hits[id] = (hits[id] || 0) + 1;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Bias toward selecting anything over nothing
-        hits[RenderConstants.ID_NONE] = 0;
-
-        let hit = RenderConstants.ID_NONE;
-        for (const hitID in hits) {
-            if (hits.hasOwnProperty(hitID) && (hits[hitID] > hits[hit])) {
-                hit = hitID;
-            }
-        }
-
-        return Number(hit);
     }
 
     /**
@@ -1233,71 +855,6 @@ class RenderWebGL extends EventEmitter {
     }
 
     /**
-     * Get the candidate bounding box for a touching query.
-     * @param {int} drawableID ID for drawable of query.
-     * @return {?Rectangle} Rectangle bounds for touching query, or null.
-     */
-    _touchingBounds (drawableID) {
-        const drawable = this._allDrawables[drawableID];
-
-        /** @todo remove this once URL-based skin setting is removed. */
-        if (!drawable.skin || !drawable.skin.getTexture([100, 100])) return null;
-
-        drawable.updateMatrix();
-        drawable.skin.updateSilhouette();
-        const bounds = drawable.getFastBounds();
-
-        // Limit queries to the stage size.
-        bounds.clamp(this._xLeft, this._xRight, this._yBottom, this._yTop);
-
-        // Use integer coordinates for queries - weird things happen
-        // when you provide float width/heights to gl.viewport and projection.
-        bounds.snapToInt();
-
-        if (bounds.width === 0 || bounds.height === 0) {
-            // No space to query.
-            return null;
-        }
-        return bounds;
-    }
-
-    /**
-     * Filter a list of candidates for a touching query into only those that
-     * could possibly intersect the given bounds.
-     * @param {int} drawableID - ID for drawable of query.
-     * @param {Array<int>} candidateIDs - Candidates for touching query.
-     * @return {?Array< {id, drawable, intersection} >} Filtered candidates with useful data.
-     */
-    _candidatesTouching (drawableID, candidateIDs) {
-        const bounds = this._touchingBounds(drawableID);
-        const result = [];
-        if (bounds === null) {
-            return result;
-        }
-        // iterate through the drawables list BACKWARDS - we want the top most item to be the first we check
-        for (let index = candidateIDs.length - 1; index >= 0; index--) {
-            const id = candidateIDs[index];
-            if (id !== drawableID) {
-                const drawable = this._allDrawables[id];
-                if (drawable.skin && drawable._visible) {
-                    // Update the CPU position data
-                    drawable.updateMatrix();
-                    drawable.skin.updateSilhouette();
-                    const candidateBounds = drawable.getFastBounds();
-                    if (bounds.intersects(candidateBounds)) {
-                        result.push({
-                            id,
-                            drawable,
-                            intersection: Rectangle.intersect(bounds, candidateBounds)
-                        });
-                    }
-                }
-            }
-        }
-        return result;
-    }
-
-    /**
      * Helper to get the union bounds from a set of candidates returned from the above method
      * @private
      * @param {Array<object>} candidates info from _candidatesTouching
@@ -1373,81 +930,6 @@ class RenderWebGL extends EventEmitter {
             y = Math.floor(drawable._position[1] + (sy - aabb.bottom));
         }
         return [x, y];
-    }
-
-    /**
-     * Clear a pen layer.
-     * @param {int} penSkinID - the unique ID of a Pen Skin.
-     */
-    penClear (penSkinID) {
-        const skin = /** @type {PenSkin} */ this._allSkins[penSkinID];
-        skin.clear();
-    }
-
-    /**
-     * Draw a point on a pen layer.
-     * @param {int} penSkinID - the unique ID of a Pen Skin.
-     * @param {PenAttributes} penAttributes - how the point should be drawn.
-     * @param {number} x - the X coordinate of the point to draw.
-     * @param {number} y - the Y coordinate of the point to draw.
-     */
-    penPoint (penSkinID, penAttributes, x, y) {
-        const skin = /** @type {PenSkin} */ this._allSkins[penSkinID];
-        skin.drawPoint(penAttributes, x, y);
-    }
-
-    /**
-     * Draw a line on a pen layer.
-     * @param {int} penSkinID - the unique ID of a Pen Skin.
-     * @param {PenAttributes} penAttributes - how the line should be drawn.
-     * @param {number} x0 - the X coordinate of the beginning of the line.
-     * @param {number} y0 - the Y coordinate of the beginning of the line.
-     * @param {number} x1 - the X coordinate of the end of the line.
-     * @param {number} y1 - the Y coordinate of the end of the line.
-     */
-    penLine (penSkinID, penAttributes, x0, y0, x1, y1) {
-        const skin = /** @type {PenSkin} */ this._allSkins[penSkinID];
-        skin.drawLine(penAttributes, x0, y0, x1, y1);
-    }
-
-    /**
-     * Stamp a Drawable onto a pen layer.
-     * @param {int} penSkinID - the unique ID of a Pen Skin.
-     * @param {int} stampID - the unique ID of the Drawable to use as the stamp.
-     */
-    penStamp (penSkinID, stampID) {
-        this._doExitDrawRegion();
-
-        const stampDrawable = this._allDrawables[stampID];
-        if (!stampDrawable) {
-            return;
-        }
-
-        const bounds = this._touchingBounds(stampID);
-        if (!bounds) {
-            return;
-        }
-
-        const skin = /** @type {PenSkin} */ this._allSkins[penSkinID];
-
-        const gl = this._gl;
-        twgl.bindFramebufferInfo(gl, this._queryBufferInfo);
-
-        // Limit size of viewport to the bounds around the stamp Drawable and create the projection matrix for the draw.
-        gl.viewport(0, 0, bounds.width, bounds.height);
-        const projection = twgl.m4.ortho(bounds.left, bounds.right, bounds.top, bounds.bottom, -1, 1);
-
-        gl.clearColor(0, 0, 0, 0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-
-        try {
-            gl.disable(gl.BLEND);
-            this._drawThese([stampID], ShaderManager.DRAW_MODE.stamp, projection, {ignoreVisibility: true});
-        } finally {
-            gl.enable(gl.BLEND);
-        }
-
-        skin._drawToBuffer(this._queryBufferInfo.attachments[0], bounds.left, bounds.top);
     }
 
     /* ******
@@ -1553,7 +1035,6 @@ class RenderWebGL extends EventEmitter {
     /**
      * Draw a set of Drawables, by drawable ID
      * @param {Array<int>} drawables The Drawable IDs to draw, possibly this._drawList.
-     * @param {ShaderManager.DRAW_MODE} drawMode Draw normally, silhouette, etc.
      * @param {module:twgl/m4.Mat4} projection The projection matrix to use.
      * @param {object} [opts] Options for drawing
      * @param {idFilterFunc} opts.filter An optional filter function.
@@ -1639,129 +1120,6 @@ class RenderWebGL extends EventEmitter {
         }
 
         this._regionId = null;
-    }
-
-    /**
-     * Get the convex hull points for a particular Drawable.
-     * To do this, draw the Drawable unrotated, unscaled, and untranslated.
-     * Read back the pixels and find all boundary points.
-     * Finally, apply a convex hull algorithm to simplify the set.
-     * @param {int} drawableID The Drawable IDs calculate convex hull for.
-     * @return {Array<Array<number>>} points Convex hull points, as [[x, y], ...]
-     */
-    _getConvexHullPointsForDrawable (drawableID) {
-        const drawable = this._allDrawables[drawableID];
-        const [width, height] = drawable.skin.size;
-        // No points in the hull if invisible or size is 0.
-        if (!drawable.getVisible() || width === 0 || height === 0) {
-            return [];
-        }
-
-        /**
-         * Return the determinant of two vectors, the vector from A to B and
-         * the vector from A to C.
-         *
-         * The determinant is useful in this case to know if AC is counter
-         * clockwise from AB. A positive value means the AC is counter
-         * clockwise from AC. A negative value menas AC is clockwise from AB.
-         *
-         * @param {Float32Array} A A 2d vector in space.
-         * @param {Float32Array} B A 2d vector in space.
-         * @param {Float32Array} C A 2d vector in space.
-         * @return {number} Greater than 0 if counter clockwise, less than if
-         * clockwise, 0 if all points are on a line.
-         */
-        const CCW = function (A, B, C) {
-            // AB = B - A
-            // AC = C - A
-            // det (AB BC) = AB0 * AC1 - AB1 * AC0
-            return (((B[0] - A[0]) * (C[1] - A[1])) - ((B[1] - A[1]) * (C[0] - A[0])));
-        };
-
-        // https://github.com/LLK/scratch-flash/blob/dcbeeb59d44c3be911545dfe54d
-        // 46a32404f8e69/src/scratch/ScratchCostume.as#L369-L413 Following
-        // RasterHull creation, compare and store left and right values that
-        // maintain a convex shape until that data can be passed to `hull` for
-        // further work.
-        const L = [];
-        const R = [];
-        const _pixelPos = twgl.v3.create();
-        const _effectPos = twgl.v3.create();
-        let ll = -1;
-        let rr = -1;
-        let Q;
-        for (let y = 0; y < height; y++) {
-            _pixelPos[1] = y / height;
-            // Scan from left to right, looking for a touchable spot in the
-            // skin.
-            let x = 0;
-            for (; x < width; x++) {
-                _pixelPos[0] = x / width;
-                EffectTransform.transformPoint(drawable, _pixelPos, _effectPos);
-                if (drawable.skin.isTouchingLinear(_effectPos)) {
-                    Q = [x, y];
-                    break;
-                }
-            }
-            // If x is equal to the width there are no touchable points in the
-            // skin. Nothing we can add to L. And looping for R would find the
-            // same thing.
-            if (x >= width) {
-                continue;
-            }
-            // Decrement ll until Q is clockwise (CCW returns negative) from the
-            // last two points in L.
-            while (ll > 0) {
-                if (CCW(L[ll - 1], L[ll], Q) < 0) {
-                    break;
-                } else {
-                    --ll;
-                }
-            }
-            // Increment ll and then set L[ll] to Q. If ll was -1 before this
-            // line, this will set L[0] to Q. If ll was 0 before this line, this
-            // will set L[1] to Q.
-            L[++ll] = Q;
-
-            // Scan from right to left, looking for a touchable spot in the
-            // skin.
-            for (x = width - 1; x >= 0; x--) {
-                _pixelPos[0] = x / width;
-                EffectTransform.transformPoint(drawable, _pixelPos, _effectPos);
-                if (drawable.skin.isTouchingLinear(_effectPos)) {
-                    Q = [x, y];
-                    break;
-                }
-            }
-            // Decrement rr until Q is counter clockwise (CCW returns positive)
-            // from the last two points in L. L takes clockwise points and R
-            // takes counter clockwise points. if y was decremented instead of
-            // incremented R would take clockwise points. We are going in the
-            // right direction for L and the wrong direction for R, so we
-            // compare the opposite value for R from L.
-            while (rr > 0) {
-                if (CCW(R[rr - 1], R[rr], Q) > 0) {
-                    break;
-                } else {
-                    --rr;
-                }
-            }
-            // Increment rr and then set R[rr] to Q.
-            R[++rr] = Q;
-        }
-
-        // Known boundary points on left/right edges of pixels.
-        const boundaryPoints = L;
-        // Truncate boundaryPoints to the index of the last added Q to L. L may
-        // have more entries than the index for the last Q.
-        boundaryPoints.length = ll + 1;
-        // Add points in R to boundaryPoints in reverse so all points in
-        // boundaryPoints are clockwise from each other.
-        for (let j = rr; j >= 0; --j) {
-            boundaryPoints.push(R[j]);
-        }
-        // Simplify boundary points using convex hull.
-        return hull(boundaryPoints, Infinity);
     }
 
     /**

@@ -2,20 +2,10 @@ const twgl = require('twgl.js');
 
 const Rectangle = require('./Rectangle');
 const RenderConstants = require('./RenderConstants');
-const ShaderManager = require('./ShaderManager');
 const Skin = require('./Skin');
-const EffectTransform = require('./EffectTransform');
 
 /**
- * An internal workspace for calculating texture locations from world vectors
- * this is REUSED for memory conservation reasons
- * @type {twgl.v3}
- */
-const __isTouchingPosition = twgl.v3.create();
-
-/**
- * Convert a scratch space location into a texture space float.  Uses the
- * internal __isTouchingPosition as a return value, so this should be copied
+ * Convert a scratch space location into a texture space float.
  * if you ever need to get two local positions and store both.  Requires that
  * the drawable inverseMatrix is up to date.
  *
@@ -25,7 +15,7 @@ const __isTouchingPosition = twgl.v3.create();
  */
 const getLocalPosition = (drawable, vec) => {
     // Transfrom from world coordinates to Drawable coordinates.
-    const localPosition = __isTouchingPosition;
+    const localPosition = twgl.v3.create();
     const v0 = vec[0];
     const v1 = vec[1];
     const m = drawable._inverseMatrix;
@@ -36,10 +26,6 @@ const getLocalPosition = (drawable, vec) => {
     // localPosition matches that transformation.
     localPosition[0] = 0.5 - (((v0 * m[0]) + (v1 * m[4]) + m[12]) / d);
     localPosition[1] = (((v0 * m[1]) + (v1 * m[5]) + m[13]) / d) + 0.5;
-    // Apply texture effect transform if the localPosition is within the drawable's space.
-    if ((localPosition[0] >= 0 && localPosition[0] < 1) && (localPosition[1] >= 0 && localPosition[1] < 1)) {
-        EffectTransform.transformPoint(drawable, localPosition, localPosition);
-    }
     return localPosition;
 };
 
@@ -73,15 +59,6 @@ class Drawable {
              */
             u_silhouetteColor: Drawable.color4fFromID(this._id)
         };
-
-        // Effect values are uniforms too
-        const numEffects = ShaderManager.EFFECTS.length;
-        for (let index = 0; index < numEffects; ++index) {
-            const effectName = ShaderManager.EFFECTS[index];
-            const effectInfo = ShaderManager.EFFECT_INFO[effectName];
-            const converter = effectInfo.converter;
-            this._uniforms[effectInfo.uniformName] = converter(0);
-        }
 
         this._position = twgl.v3.create(0, 0);
         this._scale = twgl.v3.create(100, 100);
@@ -216,24 +193,6 @@ class Drawable {
         }
         if (dirty) {
             this.setTransformDirty();
-        }
-        const numEffects = ShaderManager.EFFECTS.length;
-        for (let index = 0; index < numEffects; ++index) {
-            const effectName = ShaderManager.EFFECTS[index];
-            if (effectName in properties) {
-                const rawValue = properties[effectName];
-                const effectInfo = ShaderManager.EFFECT_INFO[effectName];
-                if (rawValue) {
-                    this._effectBits |= effectInfo.mask;
-                } else {
-                    this._effectBits &= ~effectInfo.mask;
-                }
-                const converter = effectInfo.converter;
-                this._uniforms[effectInfo.uniformName] = converter(rawValue);
-                if (effectInfo.shapeChanges) {
-                    this.setConvexHullDirty();
-                }
-            }
         }
     }
 
@@ -407,32 +366,9 @@ class Drawable {
     }
 
     /**
-     * Check if the world position touches the skin.
-     * @param {twgl.v3} vec World coordinate vector.
-     * @return {boolean} True if the world position touches the skin.
-     */
-    isTouching (vec) {
-        if (!this.skin) {
-            return false;
-        }
-
-        const localPosition = getLocalPosition(this, vec);
-
-        if (this.useNearest) {
-            return this.skin.isTouchingNearest(localPosition);
-        }
-        return this.skin.isTouchingLinear(localPosition);
-    }
-
-    /**
      * Should the drawable use NEAREST NEIGHBOR or LINEAR INTERPOLATION mode
      */
     get useNearest () {
-        // Raster skins (bitmaps) should always prefer nearest neighbor
-        if (this.skin.isRaster) {
-            return true;
-        }
-
         // We can't use nearest neighbor unless we are a multiple of 90 rotation
         if (this._direction % 90 !== 0) {
             return false;
@@ -632,12 +568,7 @@ class Drawable {
             dst[3] = 0;
             return dst;
         }
-        const textColor =
-        // commenting out to only use nearest for now
-        // drawable.useNearest ?
-             drawable.skin._silhouette.colorAtNearest(localPosition, dst);
-        // : drawable.skin._silhouette.colorAtLinear(localPosition, dst);
-        return EffectTransform.transformColor(drawable, textColor, textColor);
+        return drawable.skin._silhouette.colorAtNearest(localPosition, dst);
     }
 }
 
