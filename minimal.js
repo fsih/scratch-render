@@ -51,6 +51,8 @@ class MinimalRepro {
 
         this.div.appendChild(this.hiddenCanvas);
         this.div.appendChild(this.hiddenImage);
+        this.hiddenImage.setAttribute("class", "hidden");
+        this.hiddenCanvas.setAttribute("class", "hidden");
 
         this.renderButton.onclick = () => {
             this.render();

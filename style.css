@@ -5,3 +5,11 @@ body {
 canvas, img {
 	border: 3px dashed black;
 }
+
+fieldset {
+	border: none;
+}
+
+.hidden {
+	display: none;
+}
