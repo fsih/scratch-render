@@ -1,4 +1,4 @@
-/* global window, VirtualMachine, ScratchStorage, ScratchSVGRenderer */
+/* global VirtualMachine, ScratchStorage, ScratchSVGRenderer */
 /* eslint-env browser */
 
 // Wait for all SVG skins to be loaded.
@@ -14,7 +14,7 @@ window.waitForSVGSkinLoad = renderer => new Promise(resolve => {
         for (const skin of renderer._allSkins) {
             if (skin.constructor.name !== 'SVGSkin') continue;
             numSVGSkins++;
-            if (skin._svgRenderer.loaded) numLoadedSVGSkins++;
+            if (skin._svgImage.complete) numLoadedSVGSkins++;
         }
 
         if (numSVGSkins === numLoadedSVGSkins) {
